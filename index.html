@@ -1,107 +1,441 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MemeScan – Best Micro-Cap Meme Coins (&lt;$5k MC)</title>
-  <meta name="description" content="Open-source scanner for the best meme coins under $5,000 market cap. Free, no API key needed." />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            meme: { 50: '#fdf4ff', 100: '#fae8ff', 200: '#f5d0fe', 300: '#f0abfc', 400: '#e879f9', 500: '#d946ef', 600: '#c026d3', 700: '#a21caf', 800: '#86198f', 900: '#701a75' }
-          }
-        }
-      }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemeScan – Micro-Cap Meme Coin Scanner</title>
+<meta name="description" content="Open-source scanner for meme coins under $5k market cap. Free, no API key needed. Data from DexScreener.">
+<meta name="color-scheme" content="dark light">
+<script>
+  // Apply saved/system theme before paint to avoid a flash.
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("memescan-theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") {
+      t = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
     }
-  </script>
-  <style>
-    body { background: radial-gradient(ellipse at top, #1a0b2e 0%, #0f0a1a 50%, #05030a 100%); }
-    .card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(217, 70, 239, 0.15); }
-    .score-badge { background: linear-gradient(135deg, #d946ef, #a21caf); }
-    .pulse { animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-  </style>
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<style>
+  :root, [data-theme="dark"] {
+    --bg: #0b0f14; --surface: #131a22; --surface-2: #1a232d; --border: #263341;
+    --text: #e6edf3; --muted: #8b9bab; --accent: #2ee6a6; --accent-ink: #04281c;
+    --up: #2ee6a6; --down: #ff6b81; --warn: #ffc857; --shadow: 0 6px 24px rgba(0,0,0,.35);
+  }
+  [data-theme="light"] {
+    --bg: #f5f7fa; --surface: #ffffff; --surface-2: #eef2f6; --border: #d8e0e8;
+    --text: #14202b; --muted: #5c6c7c; --accent: #0a9f72; --accent-ink: #ffffff;
+    --up: #0a9f72; --down: #d6334c; --warn: #b7791f; --shadow: 0 6px 24px rgba(20,32,43,.08);
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  [data-theme="light"] { color-scheme: light; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    transition: background .2s, color .2s;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px 48px; }
+  header { display: flex; align-items: center; gap: 12px; padding: 20px 0; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 12px; background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; font-weight: 800; font-size: 20px;
+  }
+  header h1 { margin: 0; font-size: 20px; line-height: 1.2; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+  .spacer { flex: 1; }
+  .icon-btn, .btn, select, input {
+    font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px;
+  }
+  .icon-btn { cursor: pointer; min-width: 40px; height: 40px; padding: 0; font-size: 18px; }
+  .btn { cursor: pointer; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
+  .btn:disabled { opacity: .6; cursor: wait; }
+  .icon-btn:hover, .btn:hover { border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; box-shadow: var(--shadow); margin-bottom: 14px;
+  }
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; }
+  .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .filters input, .filters select { width: 100%; }
+  .row-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .check { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+  .status { color: var(--muted); font-size: 13px; margin: 6px 2px 12px; min-height: 1.4em; }
+  .status.error { color: var(--down); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px; transition: border-color .15s, transform .15s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card-top { display: flex; gap: 10px; align-items: center; }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--surface-2); object-fit: cover;
+    display: grid; place-items: center; font-weight: 700; color: var(--muted); flex: none; overflow: hidden;
+  }
+  .name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .chain { margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); text-transform: uppercase; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 14px; }
+  .stat span { font-size: 11px; color: var(--muted); }
+  .up { color: var(--up); } .down { color: var(--down); }
+  .flags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .flag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--warn); color: var(--warn); }
+  .flag.ok { border-color: var(--up); color: var(--up); }
+  .card a.view { text-align: center; text-decoration: none; color: var(--accent); border: 1px solid var(--border); border-radius: 10px; padding: 7px; font-weight: 600; }
+  .card a.view:hover { border-color: var(--accent); }
+  .skeleton { height: 210px; border-radius: 14px; background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%); background-size: 400% 100%; animation: sh 1.4s infinite; }
+  @keyframes sh { 0% { background-position: 100% 0 } 100% { background-position: 0 0 } }
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; grid-column: 1 / -1; }
+  .donate { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .donate code { background: var(--surface-2); padding: 6px 10px; border-radius: 8px; font-size: 12px; word-break: break-all; flex: 1 1 260px; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 24px; }
+  footer a { color: var(--accent); }
+  .warning { font-size: 12px; color: var(--muted); border-left: 3px solid var(--warn); padding-left: 10px; margin: 0 0 14px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
 </head>
-<body class="text-white min-h-screen font-sans">
-  <!-- Header -->
-  <header class="border-b border-meme-800/50 bg-black/40 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-meme-500 to-purple-700 flex items-center justify-center text-xl font-black">M</div>
-        <div>
-          <h1 class="text-xl font-bold tracking-tight">MemeScan</h1>
-          <p class="text-xs text-meme-300">Micro-cap gems under $5k MC</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-3 text-sm">
-        <button id="refreshBtn" class="px-4 py-2 rounded-lg bg-meme-600 hover:bg-meme-500 transition font-medium flex items-center gap-2">
-          <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          Scan Now
-        </button>
-        <a href="https://github.com/" target="_blank" class="text-meme-300 hover:text-white text-xs underline">Open Source</a>
-      </div>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo" aria-hidden="true">M</div>
+    <div>
+      <h1>MemeScan</h1>
+      <p>Micro-cap gems under <span id="mcLabel">$5k</span> MC</p>
     </div>
+    <div class="spacer"></div>
+    <button id="themeBtn" class="icon-btn" type="button" aria-label="Toggle dark / light theme" title="Toggle theme">🌙</button>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-6">
-    <!-- Donation Banner -->
-    <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-meme-900/80 to-purple-900/60 border border-meme-700/50">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <p class="text-sm font-medium text-meme-200">💚 Support the project (Solana)</p>
-          <p class="text-xs text-meme-400 mt-0.5">Donations keep the scanner free & open source</p>
-        </div>
-        <div class="flex items-center gap-2 bg-black/40 rounded-xl px-3 py-2 font-mono text-sm break-all">
-          <span id="donationAddr">6SS8S2TppvDM85sb46yhfS7XCNq1UWwwKwjoWpSs58xn</span>
-          <button onclick="copyDonation()" class="shrink-0 px-2 py-1 rounded bg-meme-700 hover:bg-meme-600 text-xs">Copy</button>
-        </div>
-      </div>
-    </div>
+  <p class="warning">Tokens this small are extremely risky: many are rug pulls or honeypots. This tool lists data only. It does not vet tokens. Not financial advice, DYOR.</p>
 
-    <!-- Filters & Status -->
-    <div class="flex flex-wrap items-center gap-4 mb-5 text-sm">
-      <div class="flex items-center gap-2">
-        <label class="text-meme-300">Min Liquidity $</label>
-        <input id="minLiq" type="number" value="200" min="0" class="w-24 bg-black/50 border border-meme-800 rounded-lg px-2 py-1.5 text-white" />
-      </div>
-      <div class="flex items-center gap-2">
-        <label class="text-meme-300">Chain</label>
-        <select id="chainSelect" class="bg-black/50 border border-meme-800 rounded-lg px-2 py-1.5 text-white">
+  <section class="panel" aria-label="Filters">
+    <div class="filters">
+      <label>Chain
+        <select id="chain">
           <option value="solana">Solana</option>
-          <option value="all">All Chains</option>
+          <option value="base">Base</option>
+          <option value="ethereum">Ethereum</option>
+          <option value="bsc">BNB Chain</option>
+          <option value="all">All chains</option>
         </select>
-      </div>
-      <div id="status" class="text-meme-400 flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-yellow-400 pulse"></span>
-        Ready to scan…
-      </div>
+      </label>
+      <label>Min liquidity ($)
+        <input id="minLiq" type="number" min="0" step="100" value="500" inputmode="numeric">
+      </label>
+      <label>Max market cap ($)
+        <input id="maxMc" type="number" min="100" step="500" value="5000" inputmode="numeric">
+      </label>
+      <label>Sort by
+        <select id="sort">
+          <option value="newest">Newest</option>
+          <option value="liq">Liquidity</option>
+          <option value="vol">24h volume</option>
+          <option value="mc">Market cap</option>
+          <option value="chg">24h change</option>
+        </select>
+      </label>
+      <label>Search
+        <input id="q" type="search" placeholder="Name or symbol">
+      </label>
     </div>
-
-    <!-- Results -->
-    <div id="results" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <!-- Cards injected here -->
+    <div class="row-actions">
+      <button id="scanBtn" class="btn primary" type="button">Scan now</button>
+      <label class="check"><input id="auto" type="checkbox"> Auto-refresh (60s)</label>
     </div>
+  </section>
 
-    <div id="empty" class="hidden text-center py-16 text-meme-400">
-      <p class="text-lg">No micro-cap memes found right now.</p>
-      <p class="text-sm mt-2">Try lowering min liquidity or hit Scan again in a minute.</p>
+  <div id="status" class="status" role="status" aria-live="polite">Ready to scan…</div>
+  <section id="grid" class="grid" aria-label="Results"></section>
+
+  <section class="panel" style="margin-top:20px">
+    <b>💚 Support the project (Solana)</b>
+    <p class="sub" style="margin:4px 0 10px">Donations keep the scanner free &amp; open source.</p>
+    <div class="donate">
+      <code id="addr"></code>
+      <button id="copyBtn" class="btn" type="button">Copy</button>
     </div>
+  </section>
 
-    <div id="loading" class="hidden text-center py-16">
-      <div class="inline-block w-10 h-10 border-4 border-meme-500 border-t-transparent rounded-full animate-spin"></div>
-      <p class="mt-4 text-meme-300">Scanning latest pairs & profiles…</p>
-    </div>
-  </main>
-
-  <footer class="border-t border-meme-900/50 mt-12 py-6 text-center text-xs text-meme-500">
-    <p>Open source • Data from <a href="https://dexscreener.com" target="_blank" class="underline">DexScreener</a> free API • Not financial advice • DYOR</p>
-    <p class="mt-1">MIT License • Built for the degen community</p>
+  <footer>
+    Open source (MIT) · Data from <a href="https://dexscreener.com" target="_blank" rel="noopener noreferrer">DexScreener</a> free API · Not financial advice
+    · <a id="repoLink" href="#" target="_blank" rel="noopener noreferrer">Source code</a>
   </footer>
+</div>
 
-  <script src="app.js"></script>
+<script>
+"use strict";
+
+/* ---------- Config: edit these ---------- */
+const CONFIG = {
+  API: "https://api.dexscreener.com",
+  DONATION_ADDRESS: "6SS8S2TppvDM85sb46yhfS7XCNq1UWwwKwjoWpSs58xn",
+  REPO_URL: "https://github.com/satoshi-meme-777/Meme-Scan-Killer",
+  MAX_TOKENS: 90,        // cap per scan to respect API rate limits
+  REFRESH_MS: 60000
+};
+
+const $ = (id) => document.getElementById(id);
+const els = {
+  chain: $("chain"), minLiq: $("minLiq"), maxMc: $("maxMc"), sort: $("sort"), q: $("q"),
+  scan: $("scanBtn"), auto: $("auto"), grid: $("grid"), status: $("status"),
+  theme: $("themeBtn"), addr: $("addr"), copy: $("copyBtn"), mcLabel: $("mcLabel"), repo: $("repoLink")
+};
+
+let results = [];
+let timer = null;
+let scanning = false;
+
+/* ---------- Theme ---------- */
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  els.theme.textContent = t === "dark" ? "☀️" : "🌙";
+  try { localStorage.setItem("memescan-theme", t); } catch (e) {}
+}
+els.theme.addEventListener("click", () => {
+  applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+});
+els.theme.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "☀️" : "🌙";
+
+/* ---------- Helpers ---------- */
+function fmtUsd(n) {
+  if (n == null || isNaN(n)) return "–";
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+  if (n >= 1e3) return "$" + (n / 1e3).toFixed(1) + "k";
+  return "$" + Math.round(n);
+}
+function fmtPrice(p) {
+  const n = Number(p);
+  if (!isFinite(n) || n === 0) return "–";
+  return n < 0.0001 ? "$" + n.toExponential(2) : "$" + n.toPrecision(4);
+}
+function fmtAge(ts) {
+  if (!ts) return "unknown";
+  const m = Math.max(0, (Date.now() - ts) / 60000);
+  if (m < 60) return Math.round(m) + "m";
+  if (m < 1440) return Math.round(m / 60) + "h";
+  return Math.round(m / 1440) + "d";
+}
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function safeHttps(url, host) {
+  try { const u = new URL(url); return u.protocol === "https:" && u.hostname.endsWith(host) ? u.href : null; }
+  catch (e) { return null; }
+}
+async function getJson(path) {
+  const r = await fetch(CONFIG.API + path, { headers: { Accept: "application/json" } });
+  if (r.status === 429) throw new Error("Rate limited by DexScreener. Wait a minute and try again.");
+  if (!r.ok) throw new Error("DexScreener returned HTTP " + r.status);
+  return r.json();
+}
+
+/* ---------- Data ---------- */
+async function fetchCandidates(chain) {
+  const [profiles, boosts] = await Promise.allSettled([
+    getJson("/token-profiles/latest/v1"),
+    getJson("/token-boosts/latest/v1")
+  ]);
+  if (profiles.status === "rejected" && boosts.status === "rejected") throw profiles.reason;
+
+  const seen = new Set();
+  const out = [];
+  for (const res of [profiles, boosts]) {
+    if (res.status !== "fulfilled" || !Array.isArray(res.value)) continue;
+    for (const t of res.value) {
+      if (!t || !t.chainId || !t.tokenAddress) continue;
+      if (chain !== "all" && t.chainId !== chain) continue;
+      const key = t.chainId + ":" + t.tokenAddress;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ chainId: t.chainId, address: t.tokenAddress });
+    }
+  }
+  return out.slice(0, CONFIG.MAX_TOKENS);
+}
+
+async function fetchPairs(candidates) {
+  const byChain = {};
+  for (const c of candidates) (byChain[c.chainId] = byChain[c.chainId] || []).push(c.address);
+
+  const jobs = [];
+  for (const [chainId, addrs] of Object.entries(byChain)) {
+    for (let i = 0; i < addrs.length; i += 30) {
+      const batch = addrs.slice(i, i + 30).map(encodeURIComponent).join(",");
+      jobs.push(getJson("/tokens/v1/" + encodeURIComponent(chainId) + "/" + batch));
+    }
+  }
+  const settled = await Promise.allSettled(jobs);
+  const pairs = [];
+  for (const s of settled) if (s.status === "fulfilled" && Array.isArray(s.value)) pairs.push(...s.value);
+
+  // Keep the most liquid pair per token.
+  const best = new Map();
+  for (const p of pairs) {
+    if (!p.baseToken) continue;
+    const key = p.chainId + ":" + p.baseToken.address;
+    const liq = (p.liquidity && p.liquidity.usd) || 0;
+    const cur = best.get(key);
+    if (!cur || liq > ((cur.liquidity && cur.liquidity.usd) || 0)) best.set(key, p);
+  }
+  return [...best.values()];
+}
+
+/* ---------- Scan / render ---------- */
+function showSkeletons() {
+  els.grid.replaceChildren(...Array.from({ length: 6 }, () => el("div", "skeleton")));
+}
+
+async function scan() {
+  if (scanning) return;
+  scanning = true;
+  els.scan.disabled = true;
+  els.status.className = "status";
+  els.status.textContent = "Scanning latest pairs & profiles…";
+  showSkeletons();
+  try {
+    const candidates = await fetchCandidates(els.chain.value);
+    if (!candidates.length) { results = []; }
+    else { results = await fetchPairs(candidates); }
+    els.status.textContent = "Updated " + new Date().toLocaleTimeString() + " · scanned " + candidates.length + " tokens";
+  } catch (err) {
+    results = [];
+    els.status.className = "status error";
+    els.status.textContent = err.message || "Scan failed. Check your connection and try again.";
+  } finally {
+    scanning = false;
+    els.scan.disabled = false;
+    render();
+  }
+}
+
+function render() {
+  const minLiq = Math.max(0, Number(els.minLiq.value) || 0);
+  const maxMc = Math.max(1, Number(els.maxMc.value) || CONFIG_DEFAULT_MC);
+  const q = els.q.value.trim().toLowerCase();
+  els.mcLabel.textContent = fmtUsd(maxMc);
+
+  let list = results.filter((p) => {
+    const mc = p.marketCap || p.fdv || 0;
+    const liq = (p.liquidity && p.liquidity.usd) || 0;
+    if (mc <= 0 || mc > maxMc || liq < minLiq) return false;
+    if (q) {
+      const hay = ((p.baseToken.name || "") + " " + (p.baseToken.symbol || "")).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const liqOf = (p) => (p.liquidity && p.liquidity.usd) || 0;
+  const sorters = {
+    newest: (a, b) => (b.pairCreatedAt || 0) - (a.pairCreatedAt || 0),
+    liq: (a, b) => liqOf(b) - liqOf(a),
+    vol: (a, b) => ((b.volume && b.volume.h24) || 0) - ((a.volume && a.volume.h24) || 0),
+    mc: (a, b) => (b.marketCap || b.fdv || 0) - (a.marketCap || a.fdv || 0),
+    chg: (a, b) => ((b.priceChange && b.priceChange.h24) || 0) - ((a.priceChange && a.priceChange.h24) || 0)
+  };
+  list.sort(sorters[els.sort.value] || sorters.newest);
+
+  if (!list.length) {
+    const msg = el("div", "empty");
+    msg.append(el("div", null, "No micro-cap memes found right now."),
+               el("div", "sub", "Try lowering min liquidity, raising max market cap, or scan again in a minute."));
+    els.grid.replaceChildren(msg);
+    return;
+  }
+  els.grid.replaceChildren(...list.map(card));
+}
+const CONFIG_DEFAULT_MC = 5000;
+
+function card(p) {
+  const mc = p.marketCap || p.fdv || 0;
+  const liq = liqOf2(p);
+  const chg = p.priceChange && p.priceChange.h24;
+  const c = el("article", "card");
+
+  const top = el("div", "card-top");
+  const imgUrl = p.info && safeHttps(p.info.imageUrl, "");
+  const av = el("div", "avatar", (p.baseToken.symbol || "?").slice(0, 1).toUpperCase());
+  if (imgUrl) {
+    const img = document.createElement("img");
+    img.className = "avatar"; img.alt = ""; img.loading = "lazy"; img.referrerPolicy = "no-referrer";
+    img.src = imgUrl;
+    img.onerror = () => img.replaceWith(av);
+    top.append(img);
+  } else top.append(av);
+  const names = el("div");
+  names.append(el("div", "name", p.baseToken.name || p.baseToken.symbol || "Unknown"),
+               el("div", "sub", "$" + (p.baseToken.symbol || "?") + " · " + (p.dexId || "dex")));
+  top.append(names, el("span", "chain", p.chainId));
+  c.append(top);
+
+  const stats = el("div", "stats");
+  const stat = (label, value, cls) => {
+    const s = el("div", "stat"); const b = el("b", cls || "", value);
+    s.append(b, el("span", null, label)); return s;
+  };
+  const chgTxt = chg == null ? "–" : (chg > 0 ? "+" : "") + chg.toFixed(1) + "%";
+  stats.append(
+    stat("Market cap", fmtUsd(mc)),
+    stat("Liquidity", fmtUsd(liq)),
+    stat("Price", fmtPrice(p.priceUsd)),
+    stat("24h change", chgTxt, chg > 0 ? "up" : chg < 0 ? "down" : ""),
+    stat("24h volume", fmtUsd(p.volume && p.volume.h24)),
+    stat("Age", fmtAge(p.pairCreatedAt))
+  );
+  c.append(stats);
+
+  const flags = el("div", "flags");
+  const ageMs = p.pairCreatedAt ? Date.now() - p.pairCreatedAt : null;
+  if (liq < 1000) flags.append(el("span", "flag", "Very low liquidity"));
+  if (mc > 0 && liq / mc < 0.1) flags.append(el("span", "flag", "Thin liq / MC"));
+  if (ageMs != null && ageMs < 3600000) flags.append(el("span", "flag", "Under 1h old"));
+  if (!p.info || !p.info.websites || !p.info.websites.length) flags.append(el("span", "flag", "No website"));
+  if (!flags.children.length) flags.append(el("span", "flag ok", "No basic red flags (still DYOR)"));
+  c.append(flags);
+
+  const link = safeHttps(p.url, "dexscreener.com");
+  if (link) {
+    const a = el("a", "view", "View on DexScreener ↗");
+    a.href = link; a.target = "_blank"; a.rel = "noopener noreferrer";
+    c.append(a);
+  }
+  return c;
+}
+function liqOf2(p) { return (p.liquidity && p.liquidity.usd) || 0; }
+
+/* ---------- Wiring ---------- */
+els.scan.addEventListener("click", scan);
+["minLiq", "maxMc", "sort", "q"].forEach((k) => els[k].addEventListener("input", render));
+els.chain.addEventListener("change", scan);
+
+els.auto.addEventListener("change", () => {
+  clearInterval(timer);
+  if (els.auto.checked) timer = setInterval(scan, CONFIG.REFRESH_MS);
+});
+
+els.addr.textContent = CONFIG.DONATION_ADDRESS;
+els.copy.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(CONFIG.DONATION_ADDRESS);
+    els.copy.textContent = "Copied ✓";
+  } catch (e) {
+    els.copy.textContent = "Select & copy";
+  }
+  setTimeout(() => (els.copy.textContent = "Copy"), 1800);
+});
+els.repo.href = CONFIG.REPO_URL;
+
+scan();
+</script>
 </body>
 </html>
